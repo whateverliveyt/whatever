@@ -3,12 +3,12 @@ name: Live Streaming Final (Stage 4)
 on:
   workflow_dispatch:
   # schedule:
-  #   - cron: "16 10 * * 1"   # contoh, nanti isi sesuai jadwal final
+  #   - cron: "16 10 * * 1"
 
 jobs:
   live-stream:
     runs-on: ubuntu-latest
-    timeout-minutes: 180 # 3 jam
+    timeout-minutes: 180
 
     steps:
       - name: Install FFmpeg
@@ -16,14 +16,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
-      - name: Download video listA & listB
+      - name: Download video & intro
         run: |
           for i in {01..15}; do
-            wget -q https://github.com/whateverliveyt/whatever/releases/download/TAG/listA_$i.mp4
+            wget -q https://github.com/whateverliveyt/whatever/releases/download/v1.0/listA_$i.mp4
           done
           for i in {01..10}; do
-            wget -q https://github.com/whateverliveyt/whatever/releases/download/TAG/listB_$i.mp4
+            wget -q https://github.com/whateverliveyt/whatever/releases/download/v1.0/listB_$i.mp4
           done
+          wget -q https://github.com/whateverliveyt/whatever/releases/download/v1.0/intro.mp4
 
       - name: Rotasi harian 2 keluar - 2 masuk
         run: |
@@ -43,14 +44,11 @@ jobs:
             i=$((i+1))
           done
 
-          echo "ROTASI DONE"
-          echo "OUT: $KELUAR"
-          echo "IN : $MASUK"
-
-      - name: Shuffle & buat playlist
+      - name: Shuffle & buat playlist + intro
         run: |
           ls listA_*.mp4 | shuf > urutan.txt
           > playlist.txt
+          echo "file '$PWD/intro.mp4'" >> playlist.txt
           while read f; do
             echo "file '$PWD/$f'" >> playlist.txt
           done < urutan.txt
@@ -58,7 +56,7 @@ jobs:
           echo "=== PLAYLIST ==="
           cat playlist.txt
 
-            - name: Mulai Streaming (loop + audio random ringan)
+      - name: Mulai Streaming (loop + audio random ringan)
         env:
           STREAM_KEY: ${{ secrets.STREAM_KEY }}
         run: |
@@ -71,4 +69,3 @@ jobs:
             -pix_fmt yuv420p -g 50 \
             -c:a aac -b:a 128k -ar 44100 \
             -f flv "rtmp://a.rtmp.youtube.com/live2/$STREAM_KEY"
-
