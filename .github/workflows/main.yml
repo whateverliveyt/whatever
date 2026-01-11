@@ -1,11 +1,15 @@
-name: Test Actions
+name: Cron Test
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "*/5 * * * *"
 
 jobs:
-  test:
+  test-cron:
     runs-on: ubuntu-latest
     steps:
-      - name: Cek mesin jalan
-        run: echo "GitHub Actions OK"
+      - name: Tampilkan waktu
+        run: |
+          echo "Cron jalan"
+          date -u
