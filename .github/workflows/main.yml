@@ -1,47 +1,69 @@
-name: Video Rotation Stage 2
+name: Live Streaming Final (Stage 4)
 
 on:
   workflow_dispatch:
+  # schedule:
+  #   - cron: "16 10 * * 1"   # contoh, nanti isi sesuai jadwal final
 
 jobs:
-  rotation-test:
+  live-stream:
     runs-on: ubuntu-latest
+    timeout-minutes: 180 # 3 jam
 
     steps:
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
       - name: Download video listA & listB
         run: |
           for i in {01..15}; do
-            wget -q https://github.com/whateverliveyt/whatever/releases/download/v1.0/listA_$i.mp4
+            wget -q https://github.com/whateverliveyt/whatever/releases/download/TAG/listA_$i.mp4
           done
-
           for i in {01..10}; do
-            wget -q https://github.com/whateverliveyt/whatever/releases/download/v1.0/listB_$i.mp4
+            wget -q https://github.com/whateverliveyt/whatever/releases/download/TAG/listB_$i.mp4
           done
 
-      - name: Simulasi rotasi harian (FIX)
+      - name: Rotasi harian 2 keluar - 2 masuk
         run: |
-          echo "=== SEBELUM ROTASI ==="
-          echo "ListA:"
-          ls listA_*.mp4
-          echo "ListB:"
-          ls listB_*.mp4
+          KELUAR=$(ls listA_*.mp4 | shuf -n 2)
+          MASUK=$(ls listB_*.mp4 | shuf -n 2)
 
-          KELUAR=$(ls listA_*.mp4 | shuf -n 1)
-          MASUK=$(ls listB_*.mp4 | shuf -n 1)
+          i=1
+          for A in $KELUAR; do
+            B=$(echo "$MASUK" | sed -n "${i}p")
 
-          echo ""
-          echo "Video KELUAR dari listA: $KELUAR"
-          echo "Video MASUK dari listB:  $MASUK"
+            mv "$A" "out_$i.mp4"
+            mv "$B" "in_$i.mp4"
 
-          mv "$KELUAR" keluar.mp4
-          mv "$MASUK" masuk.mp4
+            mv "in_$i.mp4" "$A"
+            mv "out_$i.mp4" "$B"
 
-          mv masuk.mp4 "$KELUAR"
-          mv keluar.mp4 "$MASUK"
+            i=$((i+1))
+          done
 
-          echo ""
-          echo "=== SETELAH ROTASI ==="
-          echo "ListA:"
-          ls listA_*.mp4
-          echo "ListB:"
-          ls listB_*.mp4
+          echo "ROTASI DONE"
+          echo "OUT: $KELUAR"
+          echo "IN : $MASUK"
+
+      - name: Shuffle & buat playlist
+        run: |
+          ls listA_*.mp4 | shuf > urutan.txt
+          > playlist.txt
+          while read f; do
+            echo "file '$PWD/$f'" >> playlist.txt
+          done < urutan.txt
+
+          echo "=== PLAYLIST ==="
+          cat playlist.txt
+
+      - name: Mulai Streaming (loop terus)
+        env:
+          STREAM_KEY: ${{ secrets.STREAM_KEY }}
+        run: |
+          ffmpeg -re -f concat -safe 0 -stream_loop -1 -i playlist.txt \
+            -c:v libx264 -preset veryfast -maxrate 3000k -bufsize 6000k \
+            -pix_fmt yuv420p -g 50 \
+            -c:a aac -b:a 128k -ar 44100 \
+            -f flv "rtmp://a.rtmp.youtube.com/live2/$STREAM_KEY"
