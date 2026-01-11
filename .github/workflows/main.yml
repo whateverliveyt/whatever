@@ -11,11 +11,11 @@ jobs:
       - name: Download video listA & listB
         run: |
           for i in {01..15}; do
-            wget -q https://github.com/USERNAME/REPO/releases/download/v1.0/listA_$i.mp4
+            wget -q https://github.com/whateverliveyt/whatever/releases/download/v1.0/listA_$i.mp4
           done
 
           for i in {01..10}; do
-            wget -q https://github.com/USERNAME/REPO/releases/download/v1.0/listB_$i.mp4
+            wget -q https://github.com/whateverliveyt/whatever/releases/download/v1.0/listB_$i.mp4
           done
 
       - name: Simulasi rotasi harian (FIX)
