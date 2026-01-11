@@ -19,10 +19,10 @@ jobs:
       - name: Download video listA & listB
         run: |
           for i in {01..15}; do
-            wget -q https://github.com/whateverliveyt/whatever/releases/download/v1.0/listA_$i.mp4
+            wget -q https://github.com/whateverliveyt/whatever/releases/download/TAG/listA_$i.mp4
           done
           for i in {01..10}; do
-            wget -q https://github.com/whateverliveyt/whatever/releases/download/v1.0/listB_$i.mp4
+            wget -q https://github.com/whateverliveyt/whatever/releases/download/TAG/listB_$i.mp4
           done
 
       - name: Rotasi harian 2 keluar - 2 masuk
@@ -58,12 +58,17 @@ jobs:
           echo "=== PLAYLIST ==="
           cat playlist.txt
 
-      - name: Mulai Streaming (loop terus)
+            - name: Mulai Streaming (loop + audio random ringan)
         env:
           STREAM_KEY: ${{ secrets.STREAM_KEY }}
         run: |
+          GAIN=$(shuf -i -2-2 -n 1)
+          echo "Audio gain: ${GAIN}dB"
+
           ffmpeg -re -f concat -safe 0 -stream_loop -1 -i playlist.txt \
+            -filter:a "volume=${GAIN}dB" \
             -c:v libx264 -preset veryfast -maxrate 3000k -bufsize 6000k \
             -pix_fmt yuv420p -g 50 \
             -c:a aac -b:a 128k -ar 44100 \
             -f flv "rtmp://a.rtmp.youtube.com/live2/$STREAM_KEY"
+
