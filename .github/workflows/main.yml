@@ -8,7 +8,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-            - name: Simulasi rotasi harian (FIX)
+      - name: Download video listA & listB
+        run: |
+          for i in {01..15}; do
+            wget -q https://github.com/USERNAME/REPO/releases/download/v1.0/listA_$i.mp4
+          done
+
+          for i in {01..10}; do
+            wget -q https://github.com/USERNAME/REPO/releases/download/v1.0/listB_$i.mp4
+          done
+
+      - name: Simulasi rotasi harian (FIX)
         run: |
           echo "=== SEBELUM ROTASI ==="
           echo "ListA:"
@@ -35,4 +45,3 @@ jobs:
           ls listA_*.mp4
           echo "ListB:"
           ls listB_*.mp4
-
