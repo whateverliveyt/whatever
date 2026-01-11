@@ -34,15 +34,24 @@ jobs:
           wget https://github.com/whateverliveyt/whatever/releases/download/v1.0/intro.mp4 \
           || echo "intro.mp4 tidak ada, lanjut tanpa intro"
 
-      - name: Rotasi harian 2 keluar - 2 masuk
+      - name: Rotasi harian 2 keluar - 2 masuk (SAFE)
         run: |
-          A_FILES=$(ls listA_*.mp4 2>/dev/null | shuf -n 2)
-          B_FILES=$(ls listB_*.mp4 2>/dev/null | shuf -n 2)
+          set +e
+
+          A_ALL=$(ls listA_*.mp4 2>/dev/null)
+          B_ALL=$(ls listB_*.mp4 2>/dev/null)
+
+          if [ -z "$A_ALL" ] || [ -z "$B_ALL" ]; then
+            echo "listA atau listB kosong, skip rotasi"
+            exit 0
+          fi
+
+          KELUAR=$(echo "$A_ALL" | shuf -n 2)
+          MASUK=$(echo "$B_ALL" | shuf -n 2)
 
           i=1
-          for A in $A_FILES; do
-            B=$(echo "$B_FILES" | sed -n "${i}p")
-
+          for A in $KELUAR; do
+            B=$(echo "$MASUK" | sed -n "${i}p")
             [ -z "$B" ] && continue
 
             mv "$A" "out_$i.mp4"
