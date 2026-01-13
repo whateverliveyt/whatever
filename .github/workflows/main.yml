@@ -1,12 +1,23 @@
-name: TEST – Rotating Content Pool (Dry Run)
+name: Live Streaming – Rotating Content Pool (Final Auto Duration)
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 10 * * 1"
+    - cron: "30 10 * * 2"
+    - cron: "30 9 * * 3"
+    - cron: "0 10 * * 4"
+    - cron: "0 11 * * 5"
+    - cron: "30 9 * * 6"
+    - cron: "30 10 * * 0"
 
 jobs:
-  test-rotation:
+  live-stream:
     runs-on: ubuntu-latest
-    timeout-minutes: 10   # pendek, hanya untuk test
+
+    # FAILSAFE SAJA — BUKAN TARGET DURASI LIVE
+    # SENGAJA BESAR AGAR VIDEO TIDAK PERNAH TERPOTONG
+    timeout-minutes: 360
 
     steps:
       - name: Install FFmpeg
@@ -35,12 +46,9 @@ jobs:
           ls listB_*.mp4 > reserve.txt
           : > recycle.txt
 
-          echo "=== ACTIVE INIT ==="
-          cat active.txt
-          echo "=== RESERVE INIT ==="
-          cat reserve.txt
-
-      - name: Dry Run Play (Soft Loop max 2x)
+      - name: Play ACTIVE pool (Soft Loop max 2x, auto stop)
+        env:
+          STREAM_KEY: ${{ secrets.STREAM_KEY }}
         run: |
           GAIN=$(awk 'BEGIN{srand(); print int(rand()*5)-2}')
           echo "Audio gain: ${GAIN}dB"
@@ -49,12 +57,12 @@ jobs:
           MAX_LOOP=2
 
           while [ $LOOP -le $MAX_LOOP ]; do
-            echo ""
-            echo "===== DRY PLAY LOOP $LOOP ====="
+            echo "=== PLAY LOOP $LOOP ==="
 
             shuf active.txt > play_order.txt
             : > playlist.txt
 
+            # Intro hanya di awal live
             if [ -f intro.mp4 ] && [ $LOOP -eq 1 ]; then
               echo "file '$PWD/intro.mp4'" >> playlist.txt
             fi
@@ -63,24 +71,23 @@ jobs:
               echo "file '$PWD/$f'" >> playlist.txt
             done < play_order.txt
 
-            echo "--- PLAYLIST LOOP $LOOP ---"
-            cat playlist.txt
-
+            # FFmpeg akan MENJALANKAN video SAMPAI HABIS
+            # Live berhenti NATURAL saat playlist selesai
             ffmpeg -re -f concat -safe 0 -i playlist.txt \
               -filter:a "volume=${GAIN}dB" \
-              -c:v libx264 -preset veryfast \
-              -c:a aac \
-              -f null -
+              -c:v libx264 -preset veryfast -maxrate 3000k -bufsize 6000k \
+              -pix_fmt yuv420p -g 50 \
+              -c:a aac -b:a 128k -ar 44100 \
+              -f flv "rtmp://a.rtmp.youtube.com/live2/$STREAM_KEY"
 
             LOOP=$((LOOP+1))
           done
 
-      - name: Rotate AFTER dry run (1 out / 1 in)
+      - name: Rotate AFTER live (1 out / 1 in)
         run: |
           OUT=$(shuf active.txt | head -n 1)
           IN=$(shuf reserve.txt | head -n 1)
 
-          echo ""
           echo "ROTATE OUT: $OUT"
           echo "ROTATE IN : $IN"
 
@@ -96,8 +103,5 @@ jobs:
             : > recycle.txt
           fi
 
-          echo ""
-          echo "=== ACTIVE (NEXT LIVE) ==="
+          echo "=== ACTIVE FOR NEXT LIVE ==="
           cat active.txt
-          echo "=== RESERVE (NEXT LIVE) ==="
-          cat reserve.txt
