@@ -1,12 +1,14 @@
-name: TEST – Rotating Content Pool (DRY RUN SAFE)
+name: Live Streaming – Rotating Content Pool (FINAL SAFE AUTO)
 
 on:
   workflow_dispatch:
+  # schedule:
+  #   - cron: "0 10 * * *"
 
 jobs:
-  test-run:
+  live-stream:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 360
 
     steps:
       - name: Checkout
@@ -19,16 +21,10 @@ jobs:
 
       - name: Download videos (safe auto)
         run: |
-          echo "Download ListA"
           for i in $(seq -w 1 50); do
             wget -q https://github.com/whateverliveyt/whatever/releases/download/v1.0/listA_${i}.mp4 || true
-          done
-
-          echo "Download ListB"
-          for i in $(seq -w 1 50); do
             wget -q https://github.com/whateverliveyt/whatever/releases/download/v1.0/listB_${i}.mp4 || true
           done
-
           wget -q https://github.com/whateverliveyt/whatever/releases/download/v1.0/intro.mp4 || true
 
       - name: Init state
@@ -37,12 +33,16 @@ jobs:
           ls listB_*.mp4 2>/dev/null > reserve.txt
           : > recycle.txt
 
-          echo "ACTIVE:"
-          cat active.txt || true
-          echo "RESERVE:"
-          cat reserve.txt || true
+      - name: Health check
+        env:
+          STREAM_KEY: ${{ secrets.STREAM_KEY }}
+        run: |
+          [ -z "$STREAM_KEY" ] && exit 1
+          [ ! -s active.txt ] && exit 1
 
-      - name: Dry run streaming
+      - name: Live streaming
+        env:
+          STREAM_KEY: ${{ secrets.STREAM_KEY }}
         run: |
           COUNT=$(wc -l < active.txt)
 
@@ -54,28 +54,24 @@ jobs:
             MAX_LOOP=3
           fi
 
-          echo "COUNT=$COUNT"
-          echo "MAX_LOOP=$MAX_LOOP"
+          GAIN=$(awk 'BEGIN{srand(); print int(rand()*5)-2}')
+          BRIGHT=$(awk 'BEGIN{srand(); printf "%.3f", (rand()*0.02 - 0.01)}')
+          SAT=$(awk 'BEGIN{srand(); printf "%.3f", 1 + (rand()*0.02 - 0.01)}')
 
           LOOP=1
           while [ $LOOP -le $MAX_LOOP ]; do
             shuf active.txt > play_order.txt
             : > playlist.txt
 
+            if [ -f intro.mp4 ] && [ $LOOP -eq 1 ]; then
+              echo "file '$PWD/intro.mp4'" >> playlist.txt
+            fi
+
             while read f; do
               echo "file '$PWD/$f'" >> playlist.txt
             done < play_order.txt
 
-            ffmpeg -re -f concat -safe 0 -i playlist.txt -t 15 -f null -
+            ffmpeg -re -f concat -safe 0 -i playlist.txt               -filter:a "volume=${GAIN}dB"               -filter:v "eq=brightness=${BRIGHT}:saturation=${SAT}"               -c:v libx264 -preset veryfast -maxrate 3000k -bufsize 6000k               -pix_fmt yuv420p -g 50               -c:a aac -b:a 128k -ar 44100               -f flv "rtmp://a.rtmp.youtube.com/live2/$STREAM_KEY"
 
             LOOP=$((LOOP+1))
           done
-
-      - name: Rotation test
-        run: |
-          COUNT=$(wc -l < active.txt)
-          if [ "$COUNT" -ge 12 ]; then N=2; else N=1; fi
-
-          echo "ROTATION MODE: $N OUT / $N IN"
-          shuf active.txt | head -n $N
-          shuf reserve.txt | head -n $N
