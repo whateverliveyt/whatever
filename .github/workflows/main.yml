@@ -1,4 +1,4 @@
-name: TEST – Rotating Content Pool (DRY RUN)
+name: TEST – Rotating Content Pool (DRY RUN SAFE)
 
 on:
   workflow_dispatch:
@@ -17,35 +17,32 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg bc wget
 
-      # ===============================
-      # AUTO-DETECT DOWNLOAD
-      # ===============================
-      - name: Download videos (auto-detect)
+      - name: Download videos (safe auto)
         run: |
-          wget -q -r -np -nd -A "listA_*.mp4" \
-            https://github.com/whateverliveyt/whatever/releases/download/v1.0/ || true
-          wget -q -r -np -nd -A "listB_*.mp4" \
-            https://github.com/whateverliveyt/whatever/releases/download/v1.0/ || true
+          echo "Download ListA"
+          for i in $(seq -w 1 50); do
+            wget -q https://github.com/whateverliveyt/whatever/releases/download/v1.0/listA_${i}.mp4 || true
+          done
+
+          echo "Download ListB"
+          for i in $(seq -w 1 50); do
+            wget -q https://github.com/whateverliveyt/whatever/releases/download/v1.0/listB_${i}.mp4 || true
+          done
+
           wget -q https://github.com/whateverliveyt/whatever/releases/download/v1.0/intro.mp4 || true
 
-      # ===============================
-      # INIT STATE
-      # ===============================
       - name: Init state
         run: |
-          ls listA_*.mp4 > active.txt
-          ls listB_*.mp4 > reserve.txt
+          ls listA_*.mp4 2>/dev/null > active.txt
+          ls listB_*.mp4 2>/dev/null > reserve.txt
           : > recycle.txt
 
           echo "ACTIVE:"
-          cat active.txt
+          cat active.txt || true
           echo "RESERVE:"
-          cat reserve.txt
+          cat reserve.txt || true
 
-      # ===============================
-      # DRY STREAM TEST
-      # ===============================
-      - name: Dry run streaming (NO YOUTUBE)
+      - name: Dry run streaming
         run: |
           COUNT=$(wc -l < active.txt)
 
@@ -57,62 +54,28 @@ jobs:
             MAX_LOOP=3
           fi
 
-          echo "Video count: $COUNT"
-          echo "Max loop   : $MAX_LOOP"
-
-          GAIN=$(awk 'BEGIN{srand(); print int(rand()*5)-2}')
-          BRIGHT=$(awk 'BEGIN{srand(); printf "%.3f", (rand()*0.02 - 0.01)}')
-          SAT=$(awk 'BEGIN{srand(); printf "%.3f", 1 + (rand()*0.02 - 0.01)}')
+          echo "COUNT=$COUNT"
+          echo "MAX_LOOP=$MAX_LOOP"
 
           LOOP=1
           while [ $LOOP -le $MAX_LOOP ]; do
-            echo "===== DRY PLAY LOOP $LOOP ====="
-
             shuf active.txt > play_order.txt
             : > playlist.txt
-
-            if [ -f intro.mp4 ] && [ $LOOP -eq 1 ]; then
-              echo "file '$PWD/intro.mp4'" >> playlist.txt
-            fi
 
             while read f; do
               echo "file '$PWD/$f'" >> playlist.txt
             done < play_order.txt
 
-            echo "--- PLAYLIST LOOP $LOOP ---"
-            cat playlist.txt
-
-            ffmpeg -re -f concat -safe 0 -i playlist.txt \
-              -filter:a "volume=${GAIN}dB" \
-              -filter:v "eq=brightness=${BRIGHT}:saturation=${SAT}" \
-              -t 20 \
-              -f null -
+            ffmpeg -re -f concat -safe 0 -i playlist.txt -t 15 -f null -
 
             LOOP=$((LOOP+1))
           done
 
-      # ===============================
-      # ROTATION TEST
-      # ===============================
-      - name: Rotation test (adaptive)
+      - name: Rotation test
         run: |
           COUNT=$(wc -l < active.txt)
+          if [ "$COUNT" -ge 12 ]; then N=2; else N=1; fi
 
-          if [ "$COUNT" -ge 12 ]; then
-            N=2
-          else
-            N=1
-          fi
-
-          echo "Rotation mode: $N OUT / $N IN"
-
-          OUTS=$(shuf active.txt | head -n $N)
-          INS=$(shuf reserve.txt | head -n $N)
-
-          echo "OUT:"
-          echo "$OUTS"
-          echo "IN:"
-          echo "$INS"
-
-      - name: Test completed
-        run: echo "DRY RUN SUCCESS – SCRIPT LOGIC OK"
+          echo "ROTATION MODE: $N OUT / $N IN"
+          shuf active.txt | head -n $N
+          shuf reserve.txt | head -n $N
