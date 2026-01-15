@@ -39,13 +39,6 @@ jobs:
           ls listB_*.mp4 2>/dev/null > reserve.txt
           : > recycle.txt
 
-      - name: Health check
-        env:
-          STREAM_KEY: ${{ secrets.STREAM_KEY }}
-        run: |
-          [ -z "$STREAM_KEY" ] && exit 1
-          [ ! -s active.txt ] && exit 1
-
       - name: Live streaming
         env:
           STREAM_KEY: ${{ secrets.STREAM_KEY }}
