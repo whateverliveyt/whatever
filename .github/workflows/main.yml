@@ -9,7 +9,7 @@ on:
   #  - cron: "25 4 * * 4" # KAMIS 17:30 WIB
   #  - cron: "59 9 * * 5" # JUMAT 17:00 WIB
   #  - cron: "59 10 * * 6" # SABTU 18:00 WIB
-  #  - cron: "29 9 * * 0" # MINGGU 16:30 WIB
+    - cron: "29 9 * * 0" # MINGGU 16:30 WIB
 
 jobs:
   live-stream:
