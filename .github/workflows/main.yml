@@ -16,6 +16,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
 
+    env:
+      STREAM_KEY: ${{ secrets.STREAM_KEY }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
